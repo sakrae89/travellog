@@ -22,7 +22,7 @@
     if(el) el.innerHTML = '<div style="padding:20px;font-size:12px;color:#3a5170;text-align:center;">구글맵 인증에 실패했어요.<br>API 키 / 결제 계정 / 도메인 제한을 확인해주세요.</div>';
   };
 </script>
-<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCdQQF6T-dqnNbPNjn7DVlWuy2JU-2MzmU&callback=initGoogleMapsCallback"></script>
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCdQQF6T-dqnNbPNjn7DVlWuy2JU-2MzmU&libraries=marker&callback=initGoogleMapsCallback"></script>
 <style>
   @font-face{
     font-family:'HComSantteutdotum';
@@ -132,11 +132,10 @@
 
   /* ===== search + view toggle ===== */
   .control-bar{
-    display:flex; gap:8px; align-items:center;
+    display:flex; flex-direction:column; gap:8px;
     padding: 14px 16px 4px;
   }
   .search-box{
-    flex:1;
     display:flex; align-items:center; gap:8px;
     background:#fbfdff;
     border:1.5px solid var(--line);
@@ -151,12 +150,13 @@
   }
   .search-box input::placeholder{ color: rgba(61,81,72,0.55); }
   .view-toggle{
-    display:flex; background:#fbfdff; border:1.5px solid var(--line); border-radius:11px; overflow:hidden; flex-shrink:0;
+    display:flex; background:#fbfdff; border:1.5px solid var(--line); border-radius:11px; overflow:hidden;
   }
   .view-btn{
+    flex:1;
     border:none; background:transparent; color:var(--ink-soft);
-    font-family:'HComSantteutdotum', sans-serif; font-size:12px; font-weight:500;
-    padding:9px 12px; cursor:pointer; white-space:nowrap;
+    font-family:'HComSantteutdotum', sans-serif; font-size:13px; font-weight:500;
+    padding:10px 6px; cursor:pointer; white-space:nowrap; text-align:center;
   }
   .view-btn.active{ background: var(--teal); color: var(--paper); }
   .result-hint{
@@ -199,6 +199,39 @@
   .summary-rating .stars-mini svg{ width:11px; height:11px; }
   .no-result{
     text-align:center; padding:40px 20px; color:var(--ink-soft); font-size:13px;
+  }
+
+  /* ===== map overview (all pins) ===== */
+  .map-coverage-note{
+    font-size:12px; color: var(--ink-soft); padding: 0 2px 10px;
+  }
+  .map-overview-wrap{ position:relative; }
+  #overviewMap{
+    width:100%; height:62vh; min-height:360px; max-height:560px;
+    border-radius:16px; overflow:hidden;
+    background: var(--paper-deep);
+    box-shadow: var(--shadow);
+  }
+  .map-overview-empty{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    text-align:center; padding:30px; color:var(--ink-soft); font-size:13px; pointer-events:none;
+  }
+  .map-photo-pin{
+    position:relative; width:44px; height:56px; cursor:pointer;
+    filter: drop-shadow(0 3px 4px rgba(11,36,71,0.35));
+  }
+  .map-photo-pin-img{
+    width:44px; height:44px; border-radius:50%;
+    background-size:cover; background-position:center;
+    background-color: var(--paper-deep);
+    border:3px solid var(--teal);
+    display:flex; align-items:center; justify-content:center; font-size:18px;
+  }
+  .map-photo-pin-tail{
+    position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
+    width:0; height:0;
+    border-left:7px solid transparent; border-right:7px solid transparent;
+    border-top:10px solid var(--teal);
   }
 
   /* ===== list ===== */
@@ -366,6 +399,7 @@
     max-height:92dvh;
     border-radius:20px 20px 0 0;
     overflow-y:auto;
+    overflow-x:hidden;
     padding: 6px 20px calc(28px + env(safe-area-inset-bottom));
     animation: slideUp .28s ease both;
   }
@@ -377,13 +411,16 @@
   .sheet-title{
     font-family:'HComSantteutdotum', sans-serif; font-size:21px; font-weight:500; margin:0 0 18px;
   }
-  .field{ margin-bottom:16px; }
+  .field{ margin-bottom:16px; width:100%; max-width:100%; }
   .field label{
     display:block; font-size:12.5px; font-weight:500; color:var(--ink-soft);
     margin-bottom:6px; font-family:'HComSantteutdotum', sans-serif; letter-spacing:0.02em;
   }
   .field input[type="text"], .field input[type="date"], .field textarea, .field select{
     width:100%;
+    max-width:100%;
+    min-width:0;
+    box-sizing:border-box;
     border:1.5px solid var(--line);
     background:#fbfdff;
     border-radius:10px;
@@ -391,6 +428,10 @@
     font-size:16px;
     font-family:'HComSantteutdotum', sans-serif;
     color: var(--ink);
+  }
+  .field input[type="date"]{
+    -webkit-appearance:none;
+    appearance:none;
   }
   .field input:focus, .field textarea:focus, .field select:focus{
     outline:none; border-color: var(--teal);
@@ -455,8 +496,9 @@
   }
   .save-btn:active{ background: var(--teal-deep); }
   .cancel-link{
-    display:block; text-align:center; margin-top:12px;
-    color: var(--ink-soft); font-size:13px; background:none; border:none; cursor:pointer;
+    display:block; width:100%; text-align:center; margin-top:12px;
+    color: var(--ink-soft); font-size:15px; font-family:'HComSantteutdotum', sans-serif;
+    background:none; border:none; cursor:pointer; padding:12px 0;
   }
 
   .toast{
@@ -604,7 +646,8 @@
     </div>
     <div class="view-toggle" role="tablist">
       <button type="button" class="view-btn active" id="viewCardBtn" data-view="card">카드</button>
-      <button type="button" class="view-btn" id="viewSummaryBtn" data-view="summary">목록 요약</button>
+      <button type="button" class="view-btn" id="viewSummaryBtn" data-view="summary">목록</button>
+      <button type="button" class="view-btn" id="viewMapBtn" data-view="map">지도</button>
     </div>
   </div>
 
@@ -717,7 +760,9 @@
   let pendingCoverIndex = 0;   // index into pendingPhotos marked as the card cover
   let pendingLocation = null;  // {lat, lng} | null
   let searchQuery = '';
-  let viewMode = 'card'; // 'card' | 'summary'
+  let viewMode = 'card'; // 'card' | 'summary' | 'map'
+  let overviewMap = null;
+  let overviewMarkers = [];
 
   const listWrap = document.getElementById('listWrap');
   const overlay = document.getElementById('overlay');
@@ -884,6 +929,11 @@
 
     const filtered = getFilteredEntries();
 
+    if(viewMode === 'map'){
+      renderMapView(filtered);
+      return;
+    }
+
     if(filtered.length === 0){
       listWrap.innerHTML = `<div class="no-result">"${escapeHtml(searchQuery)}"에 해당하는 여행지가 없어요</div>`;
       return;
@@ -934,6 +984,85 @@
       </div>
     `;
     }).join('');
+  }
+
+  function renderMapView(filtered){
+    const total = filtered.length;
+    const located = filtered.filter(e => e.location);
+
+    if(!document.getElementById('overviewMap')){
+      listWrap.innerHTML = `
+        <div class="map-coverage-note" id="mapCoverageNote"></div>
+        <div class="map-overview-wrap">
+          <div id="overviewMap"></div>
+        </div>`;
+    }
+    const note = document.getElementById('mapCoverageNote');
+    if(note){
+      note.textContent = total === 0
+        ? ''
+        : `위치가 등록된 여행지 ${located.length} / ${total}곳이 지도에 표시돼요`;
+    }
+
+    waitForGoogleMaps().then(()=>{
+      if(!overviewMap){
+        overviewMap = new google.maps.Map(document.getElementById('overviewMap'), {
+          center: FALLBACK_COORDS,
+          zoom: 12,
+          mapId: 'DEMO_MAP_ID',
+          disableDefaultUI: true,
+          zoomControl: true,
+          gestureHandling: 'greedy',
+          clickableIcons: false
+        });
+      }
+
+      overviewMarkers.forEach(m => { m.map = null; });
+      overviewMarkers = [];
+
+      const mapEl = document.getElementById('overviewMap');
+      let emptyEl = mapEl.querySelector('.map-overview-empty');
+      if(located.length === 0){
+        if(!emptyEl){
+          emptyEl = document.createElement('div');
+          emptyEl.className = 'map-overview-empty';
+          emptyEl.textContent = total === 0
+            ? '아직 기록된 여행지가 없어요'
+            : '위치가 등록된 여행지가 아직 없어요';
+          mapEl.appendChild(emptyEl);
+        }
+        overviewMap.setCenter(FALLBACK_COORDS);
+        overviewMap.setZoom(11);
+        return;
+      }
+      if(emptyEl) emptyEl.remove();
+
+      const bounds = new google.maps.LatLngBounds();
+      located.forEach(e => {
+        const cover = getCoverPhoto(e);
+        const pinEl = document.createElement('div');
+        pinEl.className = 'map-photo-pin';
+        pinEl.innerHTML = cover
+          ? `<div class="map-photo-pin-img" style="background-image:url('${cover}')"></div><div class="map-photo-pin-tail"></div>`
+          : `<div class="map-photo-pin-img">📍</div><div class="map-photo-pin-tail"></div>`;
+        const marker = new google.maps.marker.AdvancedMarkerElement({
+          map: overviewMap,
+          position: { lat: e.location.lat, lng: e.location.lng },
+          content: pinEl,
+          title: e.placeName
+        });
+        marker.addListener('click', () => openEdit(e.id));
+        overviewMarkers.push(marker);
+        bounds.extend({ lat: e.location.lat, lng: e.location.lng });
+      });
+
+      if(located.length === 1){
+        overviewMap.setCenter(located[0].location);
+        overviewMap.setZoom(14);
+      } else {
+        overviewMap.fitBounds(bounds, 60);
+      }
+    });
   }
 
   function renderSummaryList(list){
@@ -1319,14 +1448,17 @@
 
   const viewCardBtn = document.getElementById('viewCardBtn');
   const viewSummaryBtn = document.getElementById('viewSummaryBtn');
+  const viewMapBtn = document.getElementById('viewMapBtn');
   function setView(mode){
     viewMode = mode;
     viewCardBtn.classList.toggle('active', mode==='card');
     viewSummaryBtn.classList.toggle('active', mode==='summary');
+    viewMapBtn.classList.toggle('active', mode==='map');
     render();
   }
   viewCardBtn.addEventListener('click', ()=> setView('card'));
   viewSummaryBtn.addEventListener('click', ()=> setView('summary'));
+  viewMapBtn.addEventListener('click', ()=> setView('map'));
 
   // init
   loadAll();
