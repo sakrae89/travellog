@@ -81,7 +81,7 @@
   .app-header{
     background: linear-gradient(155deg, var(--teal) 0%, var(--teal-deep) 100%);
     color: var(--paper);
-    padding: calc(28px + env(safe-area-inset-top)) 22px 22px;
+    padding: calc(14px + env(safe-area-inset-top)) 22px 14px;
     position:relative;
     overflow:hidden;
   }
@@ -94,14 +94,14 @@
   .app-title{
     font-family:'HComSantteutdotum', sans-serif;
     font-weight:500;
-    font-size:34px;
+    font-size:24px;
     margin:0;
     letter-spacing:0.01em;
   }
   .stat-row{
     display:flex;
     gap:10px;
-    margin-top:18px;
+    margin-top:10px;
   }
   .stat-chip{
     font-family:'HComSantteutdotum', sans-serif;
@@ -149,7 +149,9 @@
     width:100%;
   }
   .search-box input::placeholder{ color: rgba(61,81,72,0.55); }
+  .control-row2{ display:flex; gap:8px; }
   .view-toggle{
+    flex:1;
     display:flex; background:#fbfdff; border:1.5px solid var(--line); border-radius:11px; overflow:hidden;
   }
   .view-btn{
@@ -159,6 +161,17 @@
     padding:10px 6px; cursor:pointer; white-space:nowrap; text-align:center;
   }
   .view-btn.active{ background: var(--teal); color: var(--paper); }
+  .sort-select{
+    flex-shrink:0;
+    min-width:96px;
+    border:1.5px solid var(--line);
+    background:#fbfdff;
+    border-radius:11px;
+    padding:0 10px;
+    font-family:'HComSantteutdotum', sans-serif;
+    font-size:12.5px;
+    color: var(--ink);
+  }
   .result-hint{
     padding: 8px 16px 0; font-size:12px; color: var(--ink-soft);
   }
@@ -644,10 +657,17 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
       <input type="text" id="searchInput" placeholder="장소 이름, 용도로 찾기">
     </div>
-    <div class="view-toggle" role="tablist">
-      <button type="button" class="view-btn active" id="viewCardBtn" data-view="card">카드</button>
-      <button type="button" class="view-btn" id="viewSummaryBtn" data-view="summary">목록</button>
-      <button type="button" class="view-btn" id="viewMapBtn" data-view="map">지도</button>
+    <div class="control-row2">
+      <div class="view-toggle" role="tablist">
+        <button type="button" class="view-btn active" id="viewCardBtn" data-view="card">카드</button>
+        <button type="button" class="view-btn" id="viewSummaryBtn" data-view="summary">목록</button>
+        <button type="button" class="view-btn" id="viewMapBtn" data-view="map">지도</button>
+      </div>
+      <select class="sort-select" id="sortSelect">
+        <option value="recent">최신순</option>
+        <option value="rating">점수순</option>
+        <option value="distance">거리순</option>
+      </select>
     </div>
   </div>
 
@@ -763,6 +783,8 @@
   let viewMode = 'card'; // 'card' | 'summary' | 'map'
   let overviewMap = null;
   let overviewMarkers = [];
+  let sortMode = 'recent'; // 'recent' | 'rating' | 'distance'
+  let currentUserPos = null;
 
   const listWrap = document.getElementById('listWrap');
   const overlay = document.getElementById('overlay');
@@ -898,14 +920,39 @@
     </svg>`;
   }
 
+  function haversineKm(a, b){
+    const R = 6371;
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLng = (b.lng - a.lng) * Math.PI / 180;
+    const lat1 = a.lat * Math.PI / 180, lat2 = b.lat * Math.PI / 180;
+    const h = Math.sin(dLat/2)**2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function applySort(list){
+    const arr = list.slice();
+    if(sortMode === 'rating'){
+      arr.sort((a,b) => (b.rating||0) - (a.rating||0));
+    } else if(sortMode === 'distance' && currentUserPos){
+      arr.sort((a,b) => {
+        const da = a.location ? haversineKm(currentUserPos, a.location) : Infinity;
+        const db = b.location ? haversineKm(currentUserPos, b.location) : Infinity;
+        return da - db;
+      });
+    } else {
+      arr.sort((a,b) => (b.visitDate||'').localeCompare(a.visitDate||'') || b.createdAt - a.createdAt);
+    }
+    return arr;
+  }
+
   function getFilteredEntries(){
     const q = searchQuery.trim().toLowerCase();
-    if(!q) return entries;
-    return entries.filter(e =>
+    const base = !q ? entries : entries.filter(e =>
       (e.placeName||'').toLowerCase().includes(q) ||
       (e.purpose||'').toLowerCase().includes(q) ||
       (e.review||'').toLowerCase().includes(q)
     );
+    return applySort(base);
   }
 
   function render(){
@@ -972,7 +1019,7 @@
           </div>
           <div class="rating-line">
             <div class="stars-row">${renderStarsDisplay(e.rating||0)}</div>
-            <div class="score-pill"><b>${(e.rating/2).toFixed(1)}</b><span>/ 5.0 · ${e.rating||0}점</span></div>
+            <div class="score-pill"><b>${(e.rating/2).toFixed(1)}</b><span>/ 5.0</span></div>
           </div>
           <p class="entry-review">${escapeHtml(e.review) || '<span style="opacity:.5">작성된 후기가 없습니다.</span>'}</p>
           ${e.location ? `<a class="map-link-btn" href="https://www.google.com/maps/search/?api=1&query=${e.location.lat},${e.location.lng}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>지도에서 보기</a>` : ``}
@@ -996,6 +1043,10 @@
         <div class="map-overview-wrap">
           <div id="overviewMap"></div>
         </div>`;
+      // the previous map instance (if any) was bound to a container that just got
+      // removed from the DOM by the innerHTML reset above — it must be recreated.
+      overviewMap = null;
+      overviewMarkers = [];
     }
     const note = document.getElementById('mapCoverageNote');
     if(note){
@@ -1459,6 +1510,24 @@
   viewCardBtn.addEventListener('click', ()=> setView('card'));
   viewSummaryBtn.addEventListener('click', ()=> setView('summary'));
   viewMapBtn.addEventListener('click', ()=> setView('map'));
+
+  const sortSelect = document.getElementById('sortSelect');
+  sortSelect.addEventListener('change', async (e)=>{
+    const chosen = e.target.value;
+    if(chosen === 'distance'){
+      try{
+        currentUserPos = await getCurrentPositionAsync();
+        sortMode = 'distance';
+      }catch(err){
+        showToast('현재 위치를 가져오지 못해 최신순으로 표시할게요');
+        sortMode = 'recent';
+        sortSelect.value = 'recent';
+      }
+    } else {
+      sortMode = chosen;
+    }
+    render();
+  });
 
   // init
   loadAll();
