@@ -50,7 +50,7 @@
     --shadow: 0 10px 30px rgba(15,33,56,0.14);
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0; height:100%;}
+  html,body{margin:0;padding:0; height:100%; overflow-x:hidden; width:100%;}
   html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
   body{
     background:
@@ -73,6 +73,7 @@
     min-height:100dvh;
     background:var(--paper);
     position:relative;
+    overflow-x:hidden;
     box-shadow: 0 0 60px rgba(0,0,0,0.06);
   }
 
@@ -334,7 +335,6 @@
     transform: translateX(-50%);
     max-width:480px;
     width: calc(100% - 32px);
-    margin:0 16px;
   }
   .fab-inner{
     background: var(--teal);
@@ -433,7 +433,7 @@
   .photo-hint{ font-size:11px; color: var(--ink-soft); margin-top:6px; }
 
   /* half-star rating widget */
-  .rating-widget{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .rating-widget{ display:flex; align-items:center; justify-content:space-between; gap:14px; width:100%; flex-wrap:wrap; }
   .star-picker{ display:flex; gap:4px; }
   .star-slot{
     position:relative; width:34px; height:34px; cursor:pointer;
@@ -553,11 +553,40 @@
     border-radius:12px; padding:13px 0; font-size:14.5px; font-weight:500;
     font-family:'HComSantteutdotum', sans-serif; cursor:pointer;
   }
+
+  /* ===== photo source action sheet (camera vs gallery) ===== */
+  .photo-source-sheet{
+    position:fixed; inset:0; z-index:120;
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  .photo-source-sheet.open{ display:flex; }
+  .photo-source-backdrop{
+    position:absolute; inset:0; background: rgba(11,36,71,0.45);
+  }
+  .photo-source-panel{
+    position:relative; width:100%; max-width:480px;
+    padding: 10px 16px calc(16px + env(safe-area-inset-bottom));
+    display:flex; flex-direction:column; gap:10px;
+    animation: slideUp .22s ease both;
+  }
+  .photo-source-btn{
+    width:100%; border:none; background:#fbfdff; color:var(--ink);
+    font-family:'HComSantteutdotum', sans-serif; font-size:15px; font-weight:500;
+    padding:15px 0; border-radius:14px; cursor:pointer;
+    box-shadow: 0 6px 18px rgba(15,33,56,0.12);
+  }
+  .photo-source-btn:active{ background: var(--paper-deep); }
+  .photo-source-cancel{
+    width:100%; border:none; background: var(--teal); color:var(--paper);
+    font-family:'HComSantteutdotum', sans-serif; font-size:15px; font-weight:500;
+    padding:15px 0; border-radius:14px; cursor:pointer; margin-top:4px;
+  }
 </style>
 </head>
 <body>
 
 <div class="app">
+
 
   <div class="app-header">
     <h1 class="app-title">Travel Log</h1>
@@ -595,6 +624,7 @@
       <label>사진 (여러 장 가능)</label>
       <div class="photo-strip" id="photoStrip"></div>
       <input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none;">
+      <input type="file" accept="image/*" id="photoGalleryInput" multiple style="display:none;">
       <p class="photo-hint">사진을 탭하면 카드 대표 사진으로 지정돼요.</p>
     </div>
 
@@ -661,6 +691,15 @@
       <button type="button" class="locate-btn" id="mapPickerLocateBtn">📍 현재 위치</button>
       <button type="button" class="confirm-btn" id="mapPickerConfirmBtn">이 위치로 저장</button>
     </div>
+  </div>
+</div>
+
+<div class="photo-source-sheet" id="photoSourceSheet">
+  <div class="photo-source-backdrop" id="photoSourceBackdrop"></div>
+  <div class="photo-source-panel">
+    <button type="button" class="photo-source-btn" id="photoSourceCamera">📷 사진 촬영하기</button>
+    <button type="button" class="photo-source-btn" id="photoSourceGallery">🖼️ 사진첩에서 선택</button>
+    <button type="button" class="photo-source-cancel" id="photoSourceCancel">취소</button>
   </div>
 </div>
 
@@ -959,20 +998,45 @@
 
   // ---------- photo handling (multi-photo) ----------
   const photoInput = document.getElementById('photoInput');
+  const photoGalleryInput = document.getElementById('photoGalleryInput');
   const photoStrip = document.getElementById('photoStrip');
+  const photoSourceSheet = document.getElementById('photoSourceSheet');
+
+  function openPhotoSourceSheet(){ photoSourceSheet.classList.add('open'); }
+  function closePhotoSourceSheet(){ photoSourceSheet.classList.remove('open'); }
+  document.getElementById('photoSourceBackdrop').addEventListener('click', closePhotoSourceSheet);
+  document.getElementById('photoSourceCancel').addEventListener('click', closePhotoSourceSheet);
+  document.getElementById('photoSourceCamera').addEventListener('click', ()=>{
+    closePhotoSourceSheet();
+    photoInput.click();
+  });
+  document.getElementById('photoSourceGallery').addEventListener('click', ()=>{
+    closePhotoSourceSheet();
+    photoGalleryInput.click();
+  });
+
+  async function addPhotoFiles(fileList){
+    const files = Array.from(fileList || []);
+    for(const file of files){
+      try{
+        const dataUrl = await compressImage(file);
+        pendingPhotos.push(dataUrl);
+        if(pendingPhotos.length === 1) pendingCoverIndex = 0;
+      }catch(e){
+        showToast('사진을 불러오지 못했어요');
+      }
+    }
+    renderPhotoStrip();
+  }
 
   photoInput.addEventListener('change', async (evt)=>{
-    const file = evt.target.files[0];
-    if(!file){ photoInput.value=''; return; }
-    try{
-      const dataUrl = await compressImage(file);
-      pendingPhotos.push(dataUrl);
-      if(pendingPhotos.length === 1) pendingCoverIndex = 0;
-      renderPhotoStrip();
-    }catch(e){
-      showToast('사진을 불러오지 못했어요');
-    }
+    await addPhotoFiles(evt.target.files);
     photoInput.value = '';
+  });
+
+  photoGalleryInput.addEventListener('change', async (evt)=>{
+    await addPhotoFiles(evt.target.files);
+    photoGalleryInput.value = '';
   });
 
   function renderPhotoStrip(){
@@ -990,7 +1054,7 @@
       </button>`;
     photoStrip.innerHTML = html;
 
-    document.getElementById('photoAddBtn').addEventListener('click', ()=> photoInput.click());
+    document.getElementById('photoAddBtn').addEventListener('click', openPhotoSourceSheet);
     photoStrip.querySelectorAll('.photo-thumb-wrap').forEach(el=>{
       el.addEventListener('click', ()=>{
         pendingCoverIndex = parseInt(el.dataset.index, 10);
