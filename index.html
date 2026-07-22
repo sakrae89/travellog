@@ -9,6 +9,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="format-detection" content="telephone=no" />
 <title>Travel Log</title>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
 <script>
   window.__gmapsReady = false;
   window.__gmapsReadyCallbacks = [];
@@ -636,6 +640,35 @@
     font-family:'HComSantteutdotum', sans-serif; font-size:15px; font-weight:500;
     padding:15px 0; border-radius:14px; cursor:pointer; margin-top:4px;
   }
+
+  /* ===== room setup (couple share-code onboarding) ===== */
+  .room-setup-overlay{
+    position:fixed; inset:0; z-index:130;
+    background: var(--paper);
+    display:none; align-items:center; justify-content:center;
+    padding: calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));
+  }
+  .room-setup-overlay.open{ display:flex; }
+  .room-setup-panel{ width:100%; max-width:420px; }
+  .room-setup-title{
+    font-family:'HComSantteutdotum', sans-serif; font-size:22px; font-weight:500;
+    margin:0 0 8px; color: var(--ink); text-align:center;
+  }
+  .room-setup-desc{
+    font-size:13px; color: var(--ink-soft); text-align:center; line-height:1.6;
+    margin:0 0 22px;
+  }
+  .room-setup-divider{
+    text-align:center; color: var(--ink-soft); font-size:12px; margin:16px 0;
+  }
+  .room-code-generated{
+    margin-top:12px; padding:12px 14px; border-radius:12px;
+    background: rgba(184,146,63,0.1); border:1px solid rgba(184,146,63,0.25);
+    font-size:12.5px; color: var(--ink-soft); line-height:1.6; text-align:center;
+  }
+  .room-code-generated b{
+    font-size:20px; letter-spacing:0.08em; color: var(--teal-deep); font-weight:500;
+  }
 </style>
 </head>
 <body>
@@ -648,6 +681,7 @@
     <div class="stat-row">
       <div class="stat-chip">기록 <b id="statCount">0</b>곳</div>
       <div class="stat-chip">평균 <b id="statAvg">-</b>/10</div>
+      <div class="stat-chip" id="roomCodeChip" style="cursor:pointer;">코드 <b id="roomCodeDisplay">-</b></div>
     </div>
   </div>
   <div class="perf"></div>
@@ -766,12 +800,48 @@
   </div>
 </div>
 
+<div class="room-setup-overlay" id="roomSetupOverlay">
+  <div class="room-setup-panel">
+    <h2 class="room-setup-title">함께 쓰는 여행 기록장</h2>
+    <p class="room-setup-desc">같은 공유 코드를 쓰면 두 분의 기록이 실시간으로 공유돼요.</p>
+
+    <div class="field">
+      <label>공유 코드 입력 (상대방에게 받은 코드가 있다면)</label>
+      <input type="text" id="roomCodeInput" placeholder="예: AB3XQ9">
+    </div>
+    <button type="button" class="save-btn" id="roomJoinBtn">이 코드로 시작하기</button>
+
+    <div class="room-setup-divider">또는</div>
+
+    <button type="button" class="location-btn" id="roomCreateBtn">📎 새 코드 만들기</button>
+    <div class="room-code-generated" id="roomCodeGenerated" style="display:none;">
+      생성된 코드: <b id="roomCodeGeneratedValue"></b><br>
+      이 코드를 상대방에게 알려준 뒤, 위 입력창에 채워진 코드로 "이 코드로 시작하기"를 눌러주세요.
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ⚠️ Firebase 콘솔에서 프로젝트 만든 뒤 "웹 앱 추가"로 나오는 설정값을 여기에 붙여넣어주세요.
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyARy6vJ2I91o7kLguty9oznO5Hi0p5FEGU",
+  authDomain: "travellog-5dcf6.firebaseapp.com",
+  projectId: "travellog-5dcf6",
+  messagingSenderId: "461050404202",
+  appId: "1:461050404202:web:80c723c8f75b4523ccd913"
+};
+
+const fbApp = initializeApp(FIREBASE_CONFIG);
+const fbAuth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
 (function(){
-  const STORAGE_INDEX_KEY = 'travel-index';
-  const entryKey = id => `travel-entry:${id}`;
 
   let entries = [];      // in-memory cache: [{id, placeName, purpose, visitDate, rating, review, photos:[...], coverIndex, createdAt}]
   let editingId = null;
@@ -813,9 +883,41 @@
     return photos[idx];
   }
 
-  // ---------- storage (IndexedDB — works in any browser, no Claude dependency) ----------
-  const IDB_NAME = 'travel-log-db';
-  const IDB_STORE = 'kv';
+  // ---------- cloud sync (Firebase Firestore for text/rating/location — shared via room code) ----------
+  // Photos are intentionally NOT uploaded to the cloud — they stay only on this device
+  // (see local photo cache below), so each partner sees their own photos on shared entries.
+  const ROOM_ID_KEY = 'travel-log-room-id';
+  let roomId = null;
+  let unsubscribeEntries = null;
+
+  function getStoredRoomId(){
+    try{ return localStorage.getItem(ROOM_ID_KEY); }catch(e){ return null; }
+  }
+  function setStoredRoomId(id){
+    try{ localStorage.setItem(ROOM_ID_KEY, id); }catch(e){ /* ignore */ }
+  }
+  function generateRoomCode(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I to avoid confusion
+    let code = '';
+    for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
+    return code;
+  }
+
+  function ensureAuth(){
+    return new Promise((resolve)=>{
+      onAuthStateChanged(fbAuth, (user)=>{
+        if(user) resolve(user);
+        else signInAnonymously(fbAuth).catch(err=>{
+          console.error('auth failed', err);
+          showToast('로그인에 실패했어요. 인터넷 연결을 확인해주세요');
+        });
+      });
+    });
+  }
+
+  // ---------- local photo cache (IndexedDB — device-only, never synced) ----------
+  const IDB_NAME = 'travel-log-photos-db';
+  const IDB_STORE = 'photos';
   let idbPromise = null;
 
   function openIdb(){
@@ -829,64 +931,127 @@
     });
     return idbPromise;
   }
-  async function idbGet(key){
-    const db = await openIdb();
-    return new Promise((resolve, reject)=>{
-      const tx = db.transaction(IDB_STORE, 'readonly');
-      const req = tx.objectStore(IDB_STORE).get(key);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
+  async function idbGetPhotos(entryId){
+    try{
+      const idb = await openIdb();
+      return await new Promise((resolve, reject)=>{
+        const tx = idb.transaction(IDB_STORE, 'readonly');
+        const req = tx.objectStore(IDB_STORE).get(entryId);
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }catch(e){ return []; }
   }
-  async function idbSet(key, value){
-    const db = await openIdb();
-    return new Promise((resolve, reject)=>{
-      const tx = db.transaction(IDB_STORE, 'readwrite');
-      tx.objectStore(IDB_STORE).put(value, key);
-      tx.oncomplete = () => resolve(true);
-      tx.onerror = () => reject(tx.error);
-    });
+  async function idbSetPhotos(entryId, photosArr){
+    try{
+      const idb = await openIdb();
+      await new Promise((resolve, reject)=>{
+        const tx = idb.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put(photosArr, entryId);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      });
+    }catch(e){ console.error('local photo save failed', e); }
   }
-  async function idbDelete(key){
-    const db = await openIdb();
-    return new Promise((resolve, reject)=>{
-      const tx = db.transaction(IDB_STORE, 'readwrite');
-      tx.objectStore(IDB_STORE).delete(key);
-      tx.oncomplete = () => resolve(true);
-      tx.onerror = () => reject(tx.error);
+  async function idbDeletePhotos(entryId){
+    try{
+      const idb = await openIdb();
+      await new Promise((resolve, reject)=>{
+        const tx = idb.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(entryId);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+      });
+    }catch(e){ /* ignore */ }
+  }
+
+  function startEntriesListener(){
+    if(unsubscribeEntries) unsubscribeEntries();
+    const entriesCol = collection(db, 'rooms', roomId, 'entries');
+    unsubscribeEntries = onSnapshot(entriesCol, async (snapshot)=>{
+      const loaded = snapshot.docs.map(d => ({ id: d.id, ...d.data(), photos: [] }));
+      // merge in this device's own local photos for each entry (never synced to the cloud)
+      await Promise.all(loaded.map(async (e) => {
+        e.photos = await idbGetPhotos(e.id);
+      }));
+      loaded.sort((a,b)=> (b.visitDate||'').localeCompare(a.visitDate||'') || (b.createdAt||0) - (a.createdAt||0));
+      entries = loaded;
+      render();
+    }, (err)=>{
+      console.error('sync error', err);
+      showToast('동기화 중 문제가 발생했어요');
     });
   }
 
-  async function loadIndex(){
-    try{ const v = await idbGet(STORAGE_INDEX_KEY); return v || []; }
-    catch(e){ return []; }
-  }
-  async function saveIndex(ids){
-    try{ await idbSet(STORAGE_INDEX_KEY, ids); }
-    catch(e){ console.error('index save failed', e); }
-  }
-  async function loadEntry(id){
-    try{ const v = await idbGet(entryKey(id)); return v || null; }
-    catch(e){ return null; }
-  }
   async function saveEntry(entry){
-    try{ await idbSet(entryKey(entry.id), entry); return true; }
-    catch(e){ console.error('entry save failed', e); return false; }
-  }
-  async function deleteEntryStorage(id){
-    try{ await idbDelete(entryKey(id)); }catch(e){ /* ignore */ }
+    try{
+      await idbSetPhotos(entry.id, entry.photos.slice());
+      const { photos, ...metaOnly } = entry; // photos never leave this device
+      await setDoc(doc(db, 'rooms', roomId, 'entries', entry.id), metaOnly);
+      return true;
+    }catch(e){
+      console.error('entry save failed', e);
+      return false;
+    }
   }
 
-  async function loadAll(){
-    const ids = await loadIndex();
-    const loaded = [];
-    for(const id of ids){
-      const e = await loadEntry(id);
-      if(e) loaded.push(e);
+  async function deleteEntryStorage(id){
+    try{ await deleteDoc(doc(db, 'rooms', roomId, 'entries', id)); }
+    catch(e){ console.error('entry delete failed', e); }
+    await idbDeletePhotos(id);
+  }
+
+  // ---------- room setup (couple sharing) ----------
+  const roomSetupOverlay = document.getElementById('roomSetupOverlay');
+  const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+
+  function updateRoomCodeChip(){
+    if(roomCodeDisplay) roomCodeDisplay.textContent = roomId || '-';
+  }
+
+  function enterRoom(id){
+    roomId = id.trim().toUpperCase();
+    setStoredRoomId(roomId);
+    updateRoomCodeChip();
+    roomSetupOverlay.classList.remove('open');
+    startEntriesListener();
+  }
+
+  function showRoomSetup(){
+    roomSetupOverlay.classList.add('open');
+  }
+
+  document.getElementById('roomJoinBtn').addEventListener('click', ()=>{
+    const val = document.getElementById('roomCodeInput').value.trim();
+    if(!val){ showToast('공유 코드를 입력해주세요'); return; }
+    enterRoom(val);
+  });
+  document.getElementById('roomCreateBtn').addEventListener('click', ()=>{
+    const code = generateRoomCode();
+    document.getElementById('roomCodeInput').value = code;
+    document.getElementById('roomCodeGenerated').style.display = 'block';
+    document.getElementById('roomCodeGeneratedValue').textContent = code;
+  });
+  document.getElementById('roomCodeChip').addEventListener('click', async ()=>{
+    if(!roomId) return;
+    try{
+      await navigator.clipboard.writeText(roomId);
+      showToast('공유 코드가 복사되었어요');
+    }catch(e){
+      showToast(`공유 코드: ${roomId}`);
     }
-    loaded.sort((a,b)=> (b.visitDate||'').localeCompare(a.visitDate||'') || b.createdAt - a.createdAt);
-    entries = loaded;
-    render();
+  });
+
+  async function initApp(){
+    await ensureAuth();
+    const stored = getStoredRoomId();
+    if(stored){
+      roomId = stored;
+      updateRoomCodeChip();
+      startEntriesListener();
+    } else {
+      showRoomSetup();
+    }
   }
 
   // ---------- rendering ----------
@@ -1467,27 +1632,26 @@
       createdAt: editingId ? (entries.find(x=>x.id===id)?.createdAt || Date.now()) : Date.now()
     };
 
-    const ok = await saveEntry(entry);
-    if(!ok){ showToast('저장에 실패했어요. 다시 시도해주세요'); return; }
+    const saveBtnEl = document.getElementById('saveBtn');
+    const originalLabel = saveBtnEl.textContent;
+    saveBtnEl.disabled = true;
+    saveBtnEl.textContent = '저장 중...';
 
-    if(!editingId){
-      const ids = await loadIndex();
-      ids.push(id);
-      await saveIndex(ids);
-    }
+    const ok = await saveEntry(entry);
+
+    saveBtnEl.disabled = false;
+    saveBtnEl.textContent = originalLabel;
+
+    if(!ok){ showToast('저장에 실패했어요. 인터넷 연결을 확인해주세요'); return; }
 
     closeSheet();
     showToast('기록이 저장되었어요');
-    await loadAll();
   });
 
   async function handleDelete(id){
     if(!confirm('이 기록을 삭제할까요?')) return;
     await deleteEntryStorage(id);
-    const ids = await loadIndex();
-    await saveIndex(ids.filter(x=>x!==id));
     showToast('삭제되었어요');
-    await loadAll();
   }
 
   // ---------- search & view toggle ----------
@@ -1530,7 +1694,7 @@
   });
 
   // init
-  loadAll();
+  initApp();
 })();
 </script>
 </body>
