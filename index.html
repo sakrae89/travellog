@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0b2447" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="format-detection" content="telephone=no" />
+<title>Travel Log</title>
+<script>
+  window.__gmapsReady = false;
+  window.__gmapsReadyCallbacks = [];
+  function initGoogleMapsCallback(){
+    window.__gmapsReady = true;
+    window.__gmapsReadyCallbacks.forEach(function(cb){ cb(); });
+    window.__gmapsReadyCallbacks = [];
+  }
+  window.gm_authFailure = function(){
+    var el = document.getElementById('mapPickerMap');
+    if(el) el.innerHTML = '<div style="padding:20px;font-size:12px;color:#3a5170;text-align:center;">구글맵 인증에 실패했어요.<br>API 키 / 결제 계정 / 도메인 제한을 확인해주세요.</div>';
+  };
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCdQQF6T-dqnNbPNjn7DVlWuy2JU-2MzmU&callback=initGoogleMapsCallback"></script>
+<style>
+  @font-face{
+    font-family:'HComSantteutdotum';
+    src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2307-2@1.0/HakgyoansimSantteutdotumL.woff2') format('woff2');
+    font-weight:300;
+    font-display:swap;
+  }
+  @font-face{
+    font-family:'HComSantteutdotum';
+    src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2307-2@1.0/HakgyoansimSantteutdotumM.woff2') format('woff2');
+    font-weight:500;
+    font-display:swap;
+  }
+  :root{
+    --ink:#0f2138;
+    --ink-soft:#3a5170;
+    --paper:#eef2f7;
+    --paper-deep:#dde6ef;
+    --teal:#173d73;
+    --teal-deep:#0b2447;
+    --gold:#b8923f;
+    --gold-soft:#e3cf9a;
+    --stamp:#a3423a;
+    --line: rgba(15,33,56,0.14);
+    --shadow: 0 10px 30px rgba(15,33,56,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0; height:100%;}
+  html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+  body{
+    background:
+      radial-gradient(circle at 10% 8%, rgba(184,146,63,0.08), transparent 40%),
+      radial-gradient(circle at 90% 0%, rgba(23,61,115,0.10), transparent 35%),
+      var(--paper);
+    font-family:'HComSantteutdotum', sans-serif;
+    font-weight:300;
+    color:var(--ink);
+    min-height:100vh;
+    min-height:100dvh;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, input, textarea, select, a{ touch-action: manipulation; }
+  .app{
+    max-width:480px;
+    margin:0 auto;
+    min-height:100vh;
+    min-height:100dvh;
+    background:var(--paper);
+    position:relative;
+    box-shadow: 0 0 60px rgba(0,0,0,0.06);
+  }
+
+  /* ===== Header : boarding-pass style ===== */
+  .app-header{
+    background: linear-gradient(155deg, var(--teal) 0%, var(--teal-deep) 100%);
+    color: var(--paper);
+    padding: calc(28px + env(safe-area-inset-top)) 22px 22px;
+    position:relative;
+    overflow:hidden;
+  }
+  .app-header::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image: repeating-linear-gradient(135deg, rgba(255,255,255,0.035) 0 2px, transparent 2px 14px);
+    pointer-events:none;
+  }
+  .app-title{
+    font-family:'HComSantteutdotum', sans-serif;
+    font-weight:500;
+    font-size:34px;
+    margin:0;
+    letter-spacing:0.01em;
+  }
+  .stat-row{
+    display:flex;
+    gap:10px;
+    margin-top:18px;
+  }
+  .stat-chip{
+    font-family:'HComSantteutdotum', sans-serif;
+    font-size:12px;
+    background: rgba(238,242,247,0.10);
+    border:1px solid rgba(238,242,247,0.25);
+    border-radius:999px;
+    padding:6px 12px;
+    color: var(--paper);
+  }
+  .stat-chip b{ color: var(--gold-soft); font-weight:500; }
+
+  /* perforated divider like a ticket stub */
+  .perf{
+    height:18px;
+    background:
+      radial-gradient(circle 9px at 0 50%, transparent 9px, var(--paper) 9.5px) ,
+      radial-gradient(circle 9px at 100% 50%, transparent 9px, var(--paper) 9.5px);
+    background-color: var(--teal-deep);
+    position:relative;
+    background-repeat:no-repeat;
+  }
+  .perf::after{
+    content:"";
+    position:absolute; left:14px; right:14px; top:50%;
+    border-top:2px dashed rgba(238,242,247,0.35);
+  }
+
+  /* ===== search + view toggle ===== */
+  .control-bar{
+    display:flex; gap:8px; align-items:center;
+    padding: 14px 16px 4px;
+  }
+  .search-box{
+    flex:1;
+    display:flex; align-items:center; gap:8px;
+    background:#fbfdff;
+    border:1.5px solid var(--line);
+    border-radius:11px;
+    padding:9px 12px;
+  }
+  .search-box svg{ width:16px; height:16px; color: var(--ink-soft); flex-shrink:0; }
+  .search-box input{
+    border:none; outline:none; background:transparent;
+    font-family:'HComSantteutdotum', sans-serif; font-size:16px; color:var(--ink);
+    width:100%;
+  }
+  .search-box input::placeholder{ color: rgba(61,81,72,0.55); }
+  .view-toggle{
+    display:flex; background:#fbfdff; border:1.5px solid var(--line); border-radius:11px; overflow:hidden; flex-shrink:0;
+  }
+  .view-btn{
+    border:none; background:transparent; color:var(--ink-soft);
+    font-family:'HComSantteutdotum', sans-serif; font-size:12px; font-weight:500;
+    padding:9px 12px; cursor:pointer; white-space:nowrap;
+  }
+  .view-btn.active{ background: var(--teal); color: var(--paper); }
+  .result-hint{
+    padding: 8px 16px 0; font-size:12px; color: var(--ink-soft);
+  }
+
+  /* ===== summary (compact) list ===== */
+  .summary-list{ display:flex; flex-direction:column; gap:8px; }
+  .summary-row{
+    display:flex; align-items:center; gap:12px;
+    background:#fbfdff; border:1px solid var(--line); border-radius:12px;
+    padding:10px 12px; cursor:pointer; box-shadow: var(--shadow);
+  }
+  .summary-thumb{
+    width:44px; height:44px; border-radius:9px; object-fit:cover; flex-shrink:0;
+    background: var(--paper-deep);
+  }
+  .summary-thumb-empty{
+    width:44px; height:44px; border-radius:9px; flex-shrink:0;
+    background: repeating-linear-gradient(45deg, var(--paper-deep), var(--paper-deep) 5px, #fbfdff 5px, #fbfdff 10px);
+  }
+  .summary-main{ flex:1; min-width:0; }
+  .summary-name{
+    font-size:14.5px; font-weight:500; color:var(--ink);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .summary-meta{
+    display:flex; align-items:center; gap:6px; margin-top:3px;
+  }
+  .summary-purpose{
+    font-size:10.5px; color:var(--teal); background:rgba(23,61,115,0.08);
+    border:1px solid rgba(23,61,115,0.18); padding:2px 7px; border-radius:999px; flex-shrink:0;
+  }
+  .summary-date{ font-size:11px; color:var(--ink-soft); flex-shrink:0; }
+  .summary-rating{
+    flex-shrink:0; text-align:right; font-size:13px; font-weight:500; color:var(--stamp);
+    display:flex; flex-direction:column; align-items:flex-end; gap:2px;
+  }
+  .summary-rating .stars-mini{ display:flex; gap:1px; }
+  .summary-rating .stars-mini svg{ width:11px; height:11px; }
+  .no-result{
+    text-align:center; padding:40px 20px; color:var(--ink-soft); font-size:13px;
+  }
+
+  /* ===== list ===== */
+  .list-wrap{ padding: 10px 16px calc(110px + env(safe-area-inset-bottom)); }
+  .empty-state{
+    text-align:center;
+    padding: 52px 20px;
+    color: var(--ink-soft);
+  }
+  .empty-state .stamp-icon{
+    width:64px; height:64px; margin:0 auto 14px;
+    border:2px dashed var(--gold);
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px; color:var(--gold);
+    transform: rotate(-8deg);
+  }
+  .empty-state h3{
+    font-family:'HComSantteutdotum', sans-serif; font-weight:500; font-size:19px; margin:0 0 6px; color:var(--ink);
+  }
+  .empty-state p{ margin:0; font-size:13.5px; line-height:1.6; }
+
+  .entry-card{
+    background:#fbfdff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    margin-bottom:16px;
+    box-shadow: var(--shadow);
+    overflow:hidden;
+    position:relative;
+    animation: rise .35s ease both;
+  }
+  @keyframes rise{ from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+
+  .entry-photo{
+    width:100%; height:170px; object-fit:cover; display:block;
+    background: var(--paper-deep);
+  }
+  .entry-photo-empty{
+    width:100%; height:90px;
+    background: repeating-linear-gradient(45deg, var(--paper-deep), var(--paper-deep) 10px, #fbfdff 10px, #fbfdff 20px);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--ink-soft); font-size:12px; font-family:'HComSantteutdotum', sans-serif;
+  }
+
+  .entry-body{ padding: 14px 16px 16px; position:relative; }
+  .entry-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .entry-name{
+    font-family:'HComSantteutdotum', sans-serif; font-size:19px; font-weight:500; margin:0; color:var(--ink);
+  }
+  .entry-purpose{
+    display:inline-block;
+    margin-top:6px;
+    font-size:11.5px;
+    font-family:'HComSantteutdotum', sans-serif;
+    color: var(--teal);
+    background: rgba(23,61,115,0.08);
+    border:1px solid rgba(23,61,115,0.18);
+    padding:3px 9px;
+    border-radius:999px;
+  }
+  .entry-date{
+    font-family:'HComSantteutdotum', sans-serif;
+    font-size:11px;
+    color: var(--ink-soft);
+    white-space:nowrap;
+    margin-top:2px;
+  }
+
+  /* photo frame + multi-photo counter badge */
+  .photo-frame{ position:relative; }
+  .photo-count-badge{
+    position:absolute; top:10px; right:10px;
+    background: rgba(11,36,71,0.62);
+    color: var(--paper);
+    font-family:'HComSantteutdotum', sans-serif;
+    font-size:11px;
+    padding:3px 9px;
+    border-radius:999px;
+    display:flex; align-items:center; gap:4px;
+    backdrop-filter: blur(2px);
+  }
+  .photo-count-badge svg{ width:11px; height:11px; }
+
+  /* rating line — sits below name/date, never overlaps anything */
+  .rating-line{
+    display:flex; align-items:center; justify-content:space-between;
+    margin: 12px 0 10px;
+    padding-top:10px;
+    border-top: 1px dashed var(--line);
+  }
+  .rating-line .stars-row{ margin:0; }
+  .score-pill{
+    display:flex; align-items:center; gap:6px;
+    font-family:'HComSantteutdotum', sans-serif;
+    font-size:12.5px; font-weight:500; color: var(--teal-deep);
+    background: rgba(23,61,115,0.08);
+    border:1px solid rgba(23,61,115,0.18);
+    padding:4px 11px; border-radius:999px;
+  }
+  .score-pill b{ font-size:13.5px; }
+
+  .stars-row{ display:flex; gap:2px; }
+  .star-disp{ width:16px; height:16px; }
+
+  .entry-review{
+    font-size:13.5px; line-height:1.6; color: var(--ink-soft);
+    margin:0;
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+  }
+
+  .entry-actions{
+    display:flex; gap:8px; margin-top:12px;
+  }
+  .mini-btn{
+    flex:1;
+    border:1px solid var(--line);
+    background: transparent;
+    color: var(--ink-soft);
+    font-family:'HComSantteutdotum', sans-serif;
+    font-size:12.5px;
+    padding:8px 0;
+    border-radius:10px;
+    cursor:pointer;
+  }
+  .mini-btn.danger{ color: var(--stamp); border-color: rgba(156,59,46,0.3); }
+  .mini-btn:active{ background: var(--paper-deep); }
+
+  /* ===== floating add button ===== */
+  .fab{
+    position:fixed;
+    left:50%;
+    bottom: calc(26px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    max-width:480px;
+    width: calc(100% - 32px);
+    margin:0 16px;
+  }
+  .fab-inner{
+    background: var(--teal);
+    color: var(--paper);
+    border:none;
+    border-radius:14px;
+    padding:15px 0;
+    width:100%;
+    font-size:15px;
+    font-weight:500;
+    font-family:'HComSantteutdotum', sans-serif;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    box-shadow: 0 10px 24px rgba(11,36,71,0.35);
+    cursor:pointer;
+  }
+  .fab-inner:active{ background: var(--teal-deep); }
+
+  /* ===== modal / sheet ===== */
+  .overlay{
+    position:fixed; inset:0; background: rgba(22,26,20,0.45);
+    display:none; align-items:flex-end; justify-content:center;
+    z-index:50;
+  }
+  .overlay.open{ display:flex; }
+  .sheet{
+    background: var(--paper);
+    width:100%; max-width:480px;
+    max-height:92vh;
+    max-height:92dvh;
+    border-radius:20px 20px 0 0;
+    overflow-y:auto;
+    padding: 6px 20px calc(28px + env(safe-area-inset-bottom));
+    animation: slideUp .28s ease both;
+  }
+  @keyframes slideUp{ from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;} }
+  .sheet-handle{
+    width:40px; height:4px; background: var(--line); border-radius:99px;
+    margin: 10px auto 14px;
+  }
+  .sheet-title{
+    font-family:'HComSantteutdotum', sans-serif; font-size:21px; font-weight:500; margin:0 0 18px;
+  }
+  .field{ margin-bottom:16px; }
+  .field label{
+    display:block; font-size:12.5px; font-weight:500; color:var(--ink-soft);
+    margin-bottom:6px; font-family:'HComSantteutdotum', sans-serif; letter-spacing:0.02em;
+  }
+  .field input[type="text"], .field input[type="date"], .field textarea, .field select{
+    width:100%;
+    border:1.5px solid var(--line);
+    background:#fbfdff;
+    border-radius:10px;
+    padding:11px 12px;
+    font-size:16px;
+    font-family:'HComSantteutdotum', sans-serif;
+    color: var(--ink);
+  }
+  .field input:focus, .field textarea:focus, .field select:focus{
+    outline:none; border-color: var(--teal);
+  }
+  .field textarea{ min-height:90px; resize:vertical; line-height:1.55; }
+
+  /* multi-photo upload strip */
+  .photo-strip{
+    display:flex; gap:10px; overflow-x:auto; padding:2px 2px 6px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .photo-thumb-wrap{
+    position:relative; width:76px; height:76px; flex-shrink:0;
+    border-radius:12px; overflow:hidden;
+    border:2px solid var(--line);
+    cursor:pointer;
+  }
+  .photo-thumb-wrap.is-cover{ border-color: var(--teal); }
+  .photo-thumb-wrap img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .cover-badge{
+    position:absolute; bottom:0; left:0; right:0;
+    background: var(--teal); color:var(--paper);
+    font-size:9px; text-align:center; padding:2px 0;
+    font-family:'HComSantteutdotum', sans-serif;
+  }
+  .photo-remove-x{
+    position:absolute; top:3px; right:3px; width:18px; height:18px;
+    border-radius:50%; background: rgba(11,36,71,0.68); color:#fff;
+    border:none; font-size:12px; line-height:18px; text-align:center;
+    cursor:pointer; padding:0;
+  }
+  .photo-add-btn{
+    width:76px; height:76px; flex-shrink:0;
+    border-radius:12px; border:1.5px dashed var(--gold);
+    background: rgba(184,146,63,0.06); color: var(--teal-deep);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+    font-size:10px; text-align:center; cursor:pointer;
+  }
+  .photo-add-btn svg{ width:20px; height:20px; stroke: var(--teal); }
+  .photo-hint{ font-size:11px; color: var(--ink-soft); margin-top:6px; }
+
+  /* half-star rating widget */
+  .rating-widget{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .star-picker{ display:flex; gap:4px; }
+  .star-slot{
+    position:relative; width:34px; height:34px; cursor:pointer;
+  }
+  .star-slot svg{ position:absolute; inset:0; width:100%; height:100%; }
+  .star-bg{ fill:none; stroke:var(--gold); stroke-width:1.3; }
+  .star-fg{ fill:var(--gold); }
+  .rating-score{
+    font-family:'HComSantteutdotum', sans-serif;
+    font-size:14px; color:var(--teal-deep); font-weight:500;
+    background: rgba(184,146,63,0.14);
+    padding:6px 10px; border-radius:8px;
+  }
+
+  .save-btn{
+    width:100%; border:none; background: var(--teal); color:var(--paper);
+    padding:15px 0; border-radius:12px; font-size:15px; font-weight:500;
+    margin-top:6px; cursor:pointer; font-family:'HComSantteutdotum', sans-serif;
+  }
+  .save-btn:active{ background: var(--teal-deep); }
+  .cancel-link{
+    display:block; text-align:center; margin-top:12px;
+    color: var(--ink-soft); font-size:13px; background:none; border:none; cursor:pointer;
+  }
+
+  .toast{
+    position:fixed; left:50%; bottom: calc(100px + env(safe-area-inset-bottom)); transform:translateX(-50%);
+    background: var(--ink); color:var(--paper); font-size:13px;
+    padding:10px 18px; border-radius:999px; opacity:0; pointer-events:none;
+    transition: opacity .25s ease; z-index:80;
+    max-width: calc(100% - 40px);
+    text-align:center;
+  }
+  .toast.show{ opacity:1; }
+
+  /* ===== location field (in edit sheet) ===== */
+  .location-btn{
+    width:100%;
+    border:1.5px dashed var(--gold);
+    background: rgba(184,146,63,0.06);
+    color: var(--teal-deep);
+    border-radius:12px;
+    padding:13px 10px;
+    font-size:13.5px;
+    font-family:'HComSantteutdotum', sans-serif;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    cursor:pointer;
+  }
+  .location-status{
+    display:flex; align-items:center; gap:8px;
+    background:#fbfdff; border:1.5px solid var(--line); border-radius:12px;
+    padding:11px 12px; font-size:13px; color:var(--ink);
+  }
+  .location-status .pin-emoji{ font-size:16px; flex-shrink:0; }
+  .location-status .coord-text{
+    font-family:'HComSantteutdotum', sans-serif; font-size:12.5px; color:var(--ink-soft); flex:1; min-width:0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .location-actions{ display:flex; gap:8px; margin-top:8px; }
+
+  /* card map link */
+  .map-link-btn{
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:11.5px; color: var(--teal);
+    background: rgba(23,61,115,0.08);
+    border:1px solid rgba(23,61,115,0.18);
+    padding:4px 10px; border-radius:999px;
+    text-decoration:none;
+    margin-top:8px;
+  }
+  .map-link-btn svg{ width:12px; height:12px; }
+
+  /* ===== full-screen location picker (Kakao-taxi style pin) ===== */
+  .map-picker-overlay{
+    position:fixed; inset:0; z-index:100;
+    background: var(--paper);
+    display:none; flex-direction:column;
+  }
+  .map-picker-overlay.open{ display:flex; }
+  .map-picker-top{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: calc(16px + env(safe-area-inset-top)) 16px 16px; background: var(--teal); color: var(--paper);
+    flex-shrink:0;
+  }
+  .map-picker-top .title{ font-size:15px; font-weight:500; }
+  .map-picker-close{
+    width:30px; height:30px; border-radius:50%; border:none;
+    background: rgba(238,242,247,0.15); color: var(--paper);
+    font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .map-picker-map-wrap{ position:relative; flex:1; min-height:0; }
+  #mapPickerMap{ position:absolute; inset:0; background: var(--paper-deep); }
+  .map-pin-fixed{
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-100%);
+    z-index:400;
+    pointer-events:none;
+    filter: drop-shadow(0 3px 5px rgba(11,36,71,0.4));
+  }
+  .map-pin-fixed svg{ width:38px; height:38px; }
+  .map-picker-bottom{
+    padding: 14px 16px calc(22px + env(safe-area-inset-bottom)); background: var(--paper);
+    border-top:1px solid var(--line); flex-shrink:0;
+  }
+  .map-picker-coords{
+    text-align:center; font-family:'HComSantteutdotum', sans-serif;
+    font-size:12px; color: var(--ink-soft); margin-bottom:10px;
+  }
+  .map-picker-btns{ display:flex; gap:10px; }
+  .map-picker-btns .locate-btn{
+    flex:0 0 auto; border:1.5px solid var(--line); background:#fbfdff; color:var(--ink);
+    border-radius:12px; padding:0 16px; font-size:13px; font-family:'HComSantteutdotum', sans-serif;
+    cursor:pointer; display:flex; align-items:center; gap:6px;
+  }
+  .map-picker-btns .confirm-btn{
+    flex:1; border:none; background:var(--teal); color:var(--paper);
+    border-radius:12px; padding:13px 0; font-size:14.5px; font-weight:500;
+    font-family:'HComSantteutdotum', sans-serif; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="app-header">
+    <h1 class="app-title">Travel Log</h1>
+    <div class="stat-row">
+      <div class="stat-chip">기록 <b id="statCount">0</b>곳</div>
+      <div class="stat-chip">평균 <b id="statAvg">-</b>/10</div>
+    </div>
+  </div>
+  <div class="perf"></div>
+
+  <div class="control-bar">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" id="searchInput" placeholder="장소 이름, 용도로 찾기">
+    </div>
+    <div class="view-toggle" role="tablist">
+      <button type="button" class="view-btn active" id="viewCardBtn" data-view="card">카드</button>
+      <button type="button" class="view-btn" id="viewSummaryBtn" data-view="summary">목록 요약</button>
+    </div>
+  </div>
+
+  <div class="list-wrap" id="listWrap"></div>
+
+  <div class="fab">
+    <button class="fab-inner" id="openAddBtn">＋ 새로운 여행지 기록하기</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title" id="sheetTitle">여행지 기록하기</h2>
+
+    <div class="field">
+      <label>사진 (여러 장 가능)</label>
+      <div class="photo-strip" id="photoStrip"></div>
+      <input type="file" accept="image/*" capture="environment" id="photoInput" style="display:none;">
+      <p class="photo-hint">사진을 탭하면 카드 대표 사진으로 지정돼요.</p>
+    </div>
+
+    <div class="field">
+      <label>장소 이름</label>
+      <input type="text" id="placeName" placeholder="예: 오사카 도톤보리">
+    </div>
+
+    <div class="field">
+      <label>장소의 용도</label>
+      <input type="text" id="purpose" list="purposeOptions" placeholder="예: 맛집 / 카페 / 관광지 / 숙소">
+      <datalist id="purposeOptions">
+        <option value="관광지">
+        <option value="맛집">
+        <option value="카페">
+        <option value="숙소">
+        <option value="액티비티">
+        <option value="쇼핑">
+      </datalist>
+    </div>
+
+    <div class="field">
+      <label>방문 날짜</label>
+      <input type="date" id="visitDate">
+    </div>
+
+    <div class="field">
+      <label>위치</label>
+      <div id="locationRow"></div>
+    </div>
+
+    <div class="field">
+      <label>별점 (반개 단위, 10점 만점)</label>
+      <div class="rating-widget">
+        <div class="star-picker" id="starPicker"></div>
+        <div class="rating-score" id="ratingScore">0 / 10</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>후기</label>
+      <textarea id="review" placeholder="어땠는지 자유롭게 적어보세요."></textarea>
+    </div>
+
+    <button class="save-btn" id="saveBtn">기록 저장하기</button>
+    <button class="cancel-link" id="cancelBtn">취소</button>
+  </div>
+</div>
+
+<div class="map-picker-overlay" id="mapPicker">
+  <div class="map-picker-top">
+    <span class="title">위치 설정</span>
+    <button type="button" class="map-picker-close" id="mapPickerClose">✕</button>
+  </div>
+  <div class="map-picker-map-wrap">
+    <div id="mapPickerMap"></div>
+    <div class="map-pin-fixed">
+      <svg viewBox="0 0 24 24"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8z" fill="#173d73" stroke="#eef2f7" stroke-width="1"/><circle cx="12" cy="10" r="3" fill="#eef2f7"/></svg>
+    </div>
+  </div>
+  <div class="map-picker-bottom">
+    <div class="map-picker-coords" id="mapPickerCoords">위치 확인 중...</div>
+    <div class="map-picker-btns">
+      <button type="button" class="locate-btn" id="mapPickerLocateBtn">📍 현재 위치</button>
+      <button type="button" class="confirm-btn" id="mapPickerConfirmBtn">이 위치로 저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const STORAGE_INDEX_KEY = 'travel-index';
+  const entryKey = id => `travel-entry:${id}`;
+
+  let entries = [];      // in-memory cache: [{id, placeName, purpose, visitDate, rating, review, photos:[...], coverIndex, createdAt}]
+  let editingId = null;
+  let ratingValue = 0;   // 0 ~ 10 (integer steps = half star each)
+  let pendingPhotos = [];      // array of dataURLs being edited
+  let pendingCoverIndex = 0;   // index into pendingPhotos marked as the card cover
+  let pendingLocation = null;  // {lat, lng} | null
+  let searchQuery = '';
+  let viewMode = 'card'; // 'card' | 'summary'
+
+  const listWrap = document.getElementById('listWrap');
+  const overlay = document.getElementById('overlay');
+  const toastEl = document.getElementById('toast');
+
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(()=> toastEl.classList.remove('show'), 1600);
+  }
+
+  function escapeHtml(str){
+    return (str||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---------- photo helpers (supports legacy single-photo entries) ----------
+  function getPhotos(entry){
+    if(entry.photos && entry.photos.length) return entry.photos;
+    if(entry.photo) return [entry.photo];
+    return [];
+  }
+  function getCoverPhoto(entry){
+    const photos = getPhotos(entry);
+    if(!photos.length) return null;
+    const idx = (typeof entry.coverIndex === 'number' && entry.coverIndex < photos.length) ? entry.coverIndex : 0;
+    return photos[idx];
+  }
+
+  // ---------- storage (IndexedDB — works in any browser, no Claude dependency) ----------
+  const IDB_NAME = 'travel-log-db';
+  const IDB_STORE = 'kv';
+  let idbPromise = null;
+
+  function openIdb(){
+    if(idbPromise) return idbPromise;
+    idbPromise = new Promise((resolve, reject)=>{
+      if(!window.indexedDB){ reject(new Error('IndexedDB not supported')); return; }
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return idbPromise;
+  }
+  async function idbGet(key){
+    const db = await openIdb();
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbSet(key, value){
+    const db = await openIdb();
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function idbDelete(key){
+    const db = await openIdb();
+    return new Promise((resolve, reject)=>{
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function loadIndex(){
+    try{ const v = await idbGet(STORAGE_INDEX_KEY); return v || []; }
+    catch(e){ return []; }
+  }
+  async function saveIndex(ids){
+    try{ await idbSet(STORAGE_INDEX_KEY, ids); }
+    catch(e){ console.error('index save failed', e); }
+  }
+  async function loadEntry(id){
+    try{ const v = await idbGet(entryKey(id)); return v || null; }
+    catch(e){ return null; }
+  }
+  async function saveEntry(entry){
+    try{ await idbSet(entryKey(entry.id), entry); return true; }
+    catch(e){ console.error('entry save failed', e); return false; }
+  }
+  async function deleteEntryStorage(id){
+    try{ await idbDelete(entryKey(id)); }catch(e){ /* ignore */ }
+  }
+
+  async function loadAll(){
+    const ids = await loadIndex();
+    const loaded = [];
+    for(const id of ids){
+      const e = await loadEntry(id);
+      if(e) loaded.push(e);
+    }
+    loaded.sort((a,b)=> (b.visitDate||'').localeCompare(a.visitDate||'') || b.createdAt - a.createdAt);
+    entries = loaded;
+    render();
+  }
+
+  // ---------- rendering ----------
+  function starsSvg(fillPercent){
+    // fillPercent: 0, 50, 100
+    return `<svg class="star-disp" viewBox="0 0 24 24">
+      <defs><clipPath id="clip-${Math.random().toString(36).slice(2)}"><rect x="0" y="0" width="${24*fillPercent/100}" height="24"/></clipPath></defs>
+      <path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9L5.7 21l1.7-7L2 9.2l7.1-.6z" fill="none" stroke="#b8923f" stroke-width="1.2"/>
+    </svg>`;
+  }
+
+  function renderStarsDisplay(score10){
+    // score10: 0-10 -> 5 stars, each worth 2 points
+    let html = '';
+    for(let i=0;i<5;i++){
+      const starVal = score10 - i*2; // 0,1,2 relevant range
+      let pct = 0;
+      if(starVal >= 2) pct = 100; else if(starVal >= 1) pct = 50; else pct = 0;
+      html += renderSingleStar(pct);
+    }
+    return html;
+  }
+  function renderSingleStar(pct){
+    const uid = 'g'+Math.random().toString(36).slice(2,9);
+    return `<svg class="star-disp" viewBox="0 0 24 24">
+      <defs>
+        <clipPath id="${uid}"><rect x="0" y="0" width="${24*pct/100}" height="24"/></clipPath>
+      </defs>
+      <path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9L5.7 21l1.7-7L2 9.2l7.1-.6z" fill="#efe6cd" stroke="#b8923f" stroke-width="1"/>
+      <path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9L5.7 21l1.7-7L2 9.2l7.1-.6z" fill="#b8923f" clip-path="url(#${uid})"/>
+    </svg>`;
+  }
+
+  function getFilteredEntries(){
+    const q = searchQuery.trim().toLowerCase();
+    if(!q) return entries;
+    return entries.filter(e =>
+      (e.placeName||'').toLowerCase().includes(q) ||
+      (e.purpose||'').toLowerCase().includes(q) ||
+      (e.review||'').toLowerCase().includes(q)
+    );
+  }
+
+  function render(){
+    document.getElementById('statCount').textContent = entries.length;
+    if(entries.length){
+      const avg = entries.reduce((s,e)=> s + (e.rating||0), 0) / entries.length;
+      document.getElementById('statAvg').textContent = avg.toFixed(1);
+    } else {
+      document.getElementById('statAvg').textContent = '-';
+    }
+
+    if(entries.length === 0){
+      listWrap.innerHTML = `
+        <div class="empty-state">
+          <div class="stamp-icon">✎</div>
+          <h3>아직 기록된 여행지가 없어요</h3>
+          <p>아래 버튼을 눌러 첫 여행 기록을<br>남겨보세요.</p>
+        </div>`;
+      return;
+    }
+
+    const filtered = getFilteredEntries();
+
+    if(filtered.length === 0){
+      listWrap.innerHTML = `<div class="no-result">"${escapeHtml(searchQuery)}"에 해당하는 여행지가 없어요</div>`;
+      return;
+    }
+
+    listWrap.innerHTML = viewMode === 'summary' ? renderSummaryList(filtered) : renderCardList(filtered);
+
+    listWrap.querySelectorAll('.edit-btn').forEach(btn=>{
+      btn.addEventListener('click', (evt)=>{ evt.stopPropagation(); openEdit(btn.dataset.id); });
+    });
+    listWrap.querySelectorAll('.del-btn').forEach(btn=>{
+      btn.addEventListener('click', (evt)=>{ evt.stopPropagation(); handleDelete(btn.dataset.id); });
+    });
+    listWrap.querySelectorAll('.summary-row').forEach(row=>{
+      row.addEventListener('click', ()=> openEdit(row.dataset.id));
+    });
+  }
+
+  function renderCardList(list){
+    return list.map(e => {
+      const photos = getPhotos(e);
+      const cover = getCoverPhoto(e);
+      return `
+      <div class="entry-card" data-id="${e.id}">
+        <div class="photo-frame">
+          ${cover ? `<img class="entry-photo" src="${cover}" alt="${escapeHtml(e.placeName)}">` : `<div class="entry-photo-empty">사진 없음</div>`}
+          ${photos.length > 1 ? `<div class="photo-count-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="15" height="15" rx="2"></rect><path d="M8 21h11a2 2 0 0 0 2-2V8"></path></svg>${photos.length}장</div>` : ``}
+        </div>
+        <div class="entry-body">
+          <div class="entry-top">
+            <div>
+              <h3 class="entry-name">${escapeHtml(e.placeName)}</h3>
+              <span class="entry-purpose">${escapeHtml(e.purpose || '기타')}</span>
+            </div>
+            <div class="entry-date">${e.visitDate ? escapeHtml(e.visitDate) : ''}</div>
+          </div>
+          <div class="rating-line">
+            <div class="stars-row">${renderStarsDisplay(e.rating||0)}</div>
+            <div class="score-pill"><b>${(e.rating/2).toFixed(1)}</b><span>/ 5.0 · ${e.rating||0}점</span></div>
+          </div>
+          <p class="entry-review">${escapeHtml(e.review) || '<span style="opacity:.5">작성된 후기가 없습니다.</span>'}</p>
+          ${e.location ? `<a class="map-link-btn" href="https://www.google.com/maps/search/?api=1&query=${e.location.lat},${e.location.lng}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>지도에서 보기</a>` : ``}
+          <div class="entry-actions">
+            <button class="mini-btn edit-btn" data-id="${e.id}">수정</button>
+            <button class="mini-btn danger del-btn" data-id="${e.id}">삭제</button>
+          </div>
+        </div>
+      </div>
+    `;
+    }).join('');
+  }
+
+  function renderSummaryList(list){
+    return `<div class="summary-list">` + list.map(e => {
+      const cover = getCoverPhoto(e);
+      return `
+      <div class="summary-row" data-id="${e.id}">
+        ${cover ? `<img class="summary-thumb" src="${cover}" alt="">` : `<div class="summary-thumb-empty"></div>`}
+        <div class="summary-main">
+          <div class="summary-name">${escapeHtml(e.placeName)}</div>
+          <div class="summary-meta">
+            <span class="summary-purpose">${escapeHtml(e.purpose || '기타')}</span>
+            <span class="summary-date">${e.visitDate ? escapeHtml(e.visitDate) : ''}</span>
+          </div>
+        </div>
+        <div class="summary-rating">
+          <span>${(e.rating/2).toFixed(1)} / 5.0</span>
+          <span class="stars-mini">${renderStarsDisplay(e.rating||0)}</span>
+        </div>
+      </div>
+    `;
+    }).join('') + `</div>`;
+  }
+
+  // ---------- star picker (edit widget) ----------
+  const starPicker = document.getElementById('starPicker');
+  function buildStarPicker(){
+    starPicker.innerHTML = '';
+    for(let i=0;i<5;i++){
+      const slot = document.createElement('div');
+      slot.className = 'star-slot';
+      slot.dataset.index = i;
+      slot.innerHTML = `
+        <svg viewBox="0 0 24 24">
+          <path class="star-bg" d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9L5.7 21l1.7-7L2 9.2l7.1-.6z"/>
+        </svg>
+        <svg viewBox="0 0 24 24" style="clip-path:inset(0 100% 0 0)" data-fg="${i}">
+          <path class="star-fg" d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9L5.7 21l1.7-7L2 9.2l7.1-.6z"/>
+        </svg>`;
+      slot.addEventListener('click', (evt)=>{
+        const rect = slot.getBoundingClientRect();
+        const x = evt.clientX - rect.left;
+        const half = x < rect.width/2;
+        const newVal = i*2 + (half ? 1 : 2);
+        ratingValue = newVal;
+        updateStarPicker();
+      });
+      starPicker.appendChild(slot);
+    }
+  }
+  function updateStarPicker(){
+    document.getElementById('ratingScore').textContent = `${ratingValue} / 10`;
+    starPicker.querySelectorAll('.star-slot').forEach((slot,i)=>{
+      const starVal = ratingValue - i*2;
+      let pct = 0;
+      if(starVal >= 2) pct = 100; else if(starVal >= 1) pct = 50; else pct = 0;
+      const fg = slot.querySelector('[data-fg]');
+      fg.style.clipPath = `inset(0 ${100-pct}% 0 0)`;
+    });
+  }
+  buildStarPicker();
+
+  // ---------- photo handling (multi-photo) ----------
+  const photoInput = document.getElementById('photoInput');
+  const photoStrip = document.getElementById('photoStrip');
+
+  photoInput.addEventListener('change', async (evt)=>{
+    const file = evt.target.files[0];
+    if(!file){ photoInput.value=''; return; }
+    try{
+      const dataUrl = await compressImage(file);
+      pendingPhotos.push(dataUrl);
+      if(pendingPhotos.length === 1) pendingCoverIndex = 0;
+      renderPhotoStrip();
+    }catch(e){
+      showToast('사진을 불러오지 못했어요');
+    }
+    photoInput.value = '';
+  });
+
+  function renderPhotoStrip(){
+    let html = pendingPhotos.map((src, i) => `
+      <div class="photo-thumb-wrap ${i === pendingCoverIndex ? 'is-cover' : ''}" data-index="${i}">
+        <img src="${src}">
+        <button type="button" class="photo-remove-x" data-index="${i}">×</button>
+        ${i === pendingCoverIndex ? `<div class="cover-badge">대표</div>` : ``}
+      </div>
+    `).join('');
+    html += `
+      <button type="button" class="photo-add-btn" id="photoAddBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        <span>추가</span>
+      </button>`;
+    photoStrip.innerHTML = html;
+
+    document.getElementById('photoAddBtn').addEventListener('click', ()=> photoInput.click());
+    photoStrip.querySelectorAll('.photo-thumb-wrap').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        pendingCoverIndex = parseInt(el.dataset.index, 10);
+        renderPhotoStrip();
+      });
+    });
+    photoStrip.querySelectorAll('.photo-remove-x').forEach(btn=>{
+      btn.addEventListener('click', (evt)=>{
+        evt.stopPropagation();
+        const idx = parseInt(btn.dataset.index, 10);
+        pendingPhotos.splice(idx, 1);
+        if(pendingCoverIndex >= pendingPhotos.length) pendingCoverIndex = Math.max(0, pendingPhotos.length - 1);
+        else if(idx < pendingCoverIndex) pendingCoverIndex -= 1;
+        renderPhotoStrip();
+      });
+    });
+  }
+
+  function compressImage(file, maxWidth=900, quality=0.72){
+    return new Promise((resolve,reject)=>{
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          if(w > maxWidth){ h = Math.round(h * maxWidth / w); w = maxWidth; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img,0,0,w,h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ---------- location (GPS + draggable-map pin picker, Google Maps) ----------
+  const FALLBACK_COORDS = { lat: 35.1796, lng: 129.0756 }; // Busan, used if GPS unavailable
+  const locationRow = document.getElementById('locationRow');
+  const mapPicker = document.getElementById('mapPicker');
+  const mapPickerCoords = document.getElementById('mapPickerCoords');
+  let pickerMap = null;
+
+  // muted navy-toned map style to match the app's palette
+  const MAP_STYLE = [
+    { elementType: 'geometry', stylers: [{ color: '#eef2f7' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#3a5170' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#fbfdff' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#c6d6e8' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+    { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#dde6ef' }] },
+    { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+    { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#f4f7fa' }] }
+  ];
+
+  function waitForGoogleMaps(){
+    return new Promise(resolve=>{
+      if(window.__gmapsReady) resolve();
+      else window.__gmapsReadyCallbacks.push(resolve);
+    });
+  }
+
+  function getCurrentPositionAsync(){
+    return new Promise((resolve, reject) => {
+      if(!navigator.geolocation){ reject(new Error('no geolocation')); return; }
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        err => reject(err),
+        { enableHighAccuracy: true, timeout: 8000, maximum: 0 }
+      );
+    });
+  }
+
+  function renderLocationField(){
+    if(pendingLocation){
+      locationRow.innerHTML = `
+        <div class="location-status">
+          <span class="pin-emoji">📍</span>
+          <span class="coord-text">${pendingLocation.lat.toFixed(5)}, ${pendingLocation.lng.toFixed(5)}</span>
+        </div>
+        <div class="location-actions">
+          <button type="button" class="mini-btn" id="locationChangeBtn">위치 변경</button>
+          <button type="button" class="mini-btn danger" id="locationClearBtn">위치 삭제</button>
+        </div>`;
+      document.getElementById('locationChangeBtn').addEventListener('click', ()=> openLocationPicker(pendingLocation));
+      document.getElementById('locationClearBtn').addEventListener('click', ()=>{
+        pendingLocation = null;
+        renderLocationField();
+      });
+    } else {
+      locationRow.innerHTML = `<button type="button" class="location-btn" id="locationBtn">📍 현재 위치로 등록</button>`;
+      document.getElementById('locationBtn').addEventListener('click', async ()=>{
+        let start = FALLBACK_COORDS;
+        try{ start = await getCurrentPositionAsync(); }
+        catch(e){ showToast('위치 권한이 없어 기본 위치에서 시작해요'); }
+        openLocationPicker(start);
+      });
+    }
+  }
+
+  function openLocationPicker(center){
+    mapPicker.classList.add('open');
+    mapPickerCoords.textContent = `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
+
+    waitForGoogleMaps().then(()=>{
+      requestAnimationFrame(()=>{
+        if(!pickerMap){
+          pickerMap = new google.maps.Map(document.getElementById('mapPickerMap'), {
+            center: { lat: center.lat, lng: center.lng },
+            zoom: 16,
+            disableDefaultUI: true,
+            zoomControl: true,
+            zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
+            gestureHandling: 'greedy',
+            clickableIcons: false,
+            styles: MAP_STYLE
+          });
+          pickerMap.addListener('center_changed', ()=>{
+            const c = pickerMap.getCenter();
+            if(c) mapPickerCoords.textContent = `${c.lat().toFixed(5)}, ${c.lng().toFixed(5)}`;
+          });
+        } else {
+          pickerMap.setCenter({ lat: center.lat, lng: center.lng });
+          pickerMap.setZoom(16);
+        }
+        setTimeout(()=>{
+          google.maps.event.trigger(pickerMap, 'resize');
+          pickerMap.setCenter({ lat: center.lat, lng: center.lng });
+        }, 100);
+      });
+    });
+  }
+
+  function closeLocationPicker(){
+    mapPicker.classList.remove('open');
+  }
+
+  document.getElementById('mapPickerClose').addEventListener('click', closeLocationPicker);
+
+  document.getElementById('mapPickerLocateBtn').addEventListener('click', async ()=>{
+    if(!pickerMap) return;
+    try{
+      const pos = await getCurrentPositionAsync();
+      pickerMap.setCenter({ lat: pos.lat, lng: pos.lng });
+      pickerMap.setZoom(16);
+    }catch(e){
+      showToast('현재 위치를 가져오지 못했어요');
+    }
+  });
+
+  document.getElementById('mapPickerConfirmBtn').addEventListener('click', ()=>{
+    if(!pickerMap) return;
+    const c = pickerMap.getCenter();
+    pendingLocation = { lat: c.lat(), lng: c.lng() };
+    closeLocationPicker();
+    renderLocationField();
+    showToast('위치가 저장되었어요');
+  });
+
+  // ---------- sheet open/close ----------
+  function openAdd(){
+    editingId = null;
+    ratingValue = 0;
+    pendingPhotos = [];
+    pendingCoverIndex = 0;
+    pendingLocation = null;
+    document.getElementById('sheetTitle').textContent = '여행지 기록하기';
+    document.getElementById('placeName').value = '';
+    document.getElementById('purpose').value = '';
+    document.getElementById('visitDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('review').value = '';
+    renderPhotoStrip();
+    renderLocationField();
+    updateStarPicker();
+    overlay.classList.add('open');
+  }
+
+  function openEdit(id){
+    const e = entries.find(x=>x.id === id);
+    if(!e) return;
+    editingId = id;
+    ratingValue = e.rating || 0;
+    pendingPhotos = getPhotos(e).slice();
+    pendingCoverIndex = (typeof e.coverIndex === 'number' && e.coverIndex < pendingPhotos.length) ? e.coverIndex : 0;
+    pendingLocation = e.location ? { ...e.location } : null;
+    document.getElementById('sheetTitle').textContent = '기록 수정하기';
+    document.getElementById('placeName').value = e.placeName || '';
+    document.getElementById('purpose').value = e.purpose || '';
+    document.getElementById('visitDate').value = e.visitDate || '';
+    document.getElementById('review').value = e.review || '';
+    renderPhotoStrip();
+    renderLocationField();
+    updateStarPicker();
+    overlay.classList.add('open');
+  }
+
+  function closeSheet(){
+    overlay.classList.remove('open');
+  }
+
+  document.getElementById('openAddBtn').addEventListener('click', openAdd);
+  document.getElementById('cancelBtn').addEventListener('click', closeSheet);
+  overlay.addEventListener('click', (e)=>{ if(e.target === overlay) closeSheet(); });
+
+  document.getElementById('saveBtn').addEventListener('click', async ()=>{
+    const placeName = document.getElementById('placeName').value.trim();
+    if(!placeName){
+      showToast('장소 이름을 입력해주세요');
+      return;
+    }
+    const purpose = document.getElementById('purpose').value.trim();
+    const visitDate = document.getElementById('visitDate').value;
+    const review = document.getElementById('review').value.trim();
+
+    const id = editingId || (Date.now().toString(36) + Math.random().toString(36).slice(2,7));
+    const entry = {
+      id,
+      placeName,
+      purpose,
+      visitDate,
+      rating: ratingValue,
+      review,
+      photos: pendingPhotos.slice(),
+      coverIndex: pendingPhotos.length ? Math.min(pendingCoverIndex, pendingPhotos.length - 1) : 0,
+      location: pendingLocation ? { ...pendingLocation } : null,
+      createdAt: editingId ? (entries.find(x=>x.id===id)?.createdAt || Date.now()) : Date.now()
+    };
+
+    const ok = await saveEntry(entry);
+    if(!ok){ showToast('저장에 실패했어요. 다시 시도해주세요'); return; }
+
+    if(!editingId){
+      const ids = await loadIndex();
+      ids.push(id);
+      await saveIndex(ids);
+    }
+
+    closeSheet();
+    showToast('기록이 저장되었어요');
+    await loadAll();
+  });
+
+  async function handleDelete(id){
+    if(!confirm('이 기록을 삭제할까요?')) return;
+    await deleteEntryStorage(id);
+    const ids = await loadIndex();
+    await saveIndex(ids.filter(x=>x!==id));
+    showToast('삭제되었어요');
+    await loadAll();
+  }
+
+  // ---------- search & view toggle ----------
+  const searchInput = document.getElementById('searchInput');
+  searchInput.addEventListener('input', (e)=>{
+    searchQuery = e.target.value;
+    render();
+  });
+
+  const viewCardBtn = document.getElementById('viewCardBtn');
+  const viewSummaryBtn = document.getElementById('viewSummaryBtn');
+  function setView(mode){
+    viewMode = mode;
+    viewCardBtn.classList.toggle('active', mode==='card');
+    viewSummaryBtn.classList.toggle('active', mode==='summary');
+    render();
+  }
+  viewCardBtn.addEventListener('click', ()=> setView('card'));
+  viewSummaryBtn.addEventListener('click', ()=> setView('summary'));
+
+  // init
+  loadAll();
+})();
+</script>
+</body>
+</html>
